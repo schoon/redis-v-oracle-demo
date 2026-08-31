@@ -1,0 +1,54 @@
+# Both engines run locally so the comparison is apples-to-apples: same laptop,
+# same CPU, same dataset, no network in between.
+#
+# Ports are deliberately different from the redis-v-solr-demo so both can run
+# at the same time:
+#   Redis   6381  (solr demo uses 6380, your local Redis uses 6379)
+#   Oracle  1522  (rather than the 1521 default)
+#   App     3020  (solr demo uses 3010, leaderboard uses 3000)
+
+services:
+  redis:
+    # Redis 8 ships the Query Engine (the search module) in the core image —
+    # no redis-stack needed. FT.CREATE / FT.SEARCH are available out of the box.
+    image: redis:8
+    container_name: rvo-redis
+    ports:
+      - "6381:6379"
+    command:
+      - redis-server
+      - --save
+      - ""
+      - --appendonly
+      - "no"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  oracle:
+    # Oracle Database 23ai Free. The community "faststart" image is used rather
+    # than container-registry.oracle.com/database/free because it boots from a
+    # pre-created database in well under a minute instead of building one on
+    # first run, and it publishes an arm64 manifest — both of which matter on a
+    # laptop. Oracle Free includes Oracle Text, Spatial and AI Vector Search,
+    # which is what makes the comparison possible at all.
+    image: gvenzl/oracle-free:23-faststart
+    container_name: rvo-oracle
+    ports:
+      - "1522:1521"
+    environment:
+      ORACLE_PASSWORD: demopassword
+      # Creates an application user in the pluggable database on first boot, so
+      # the seeder doesn't need SYSDBA.
+      APP_USER: counterparty
+      APP_USER_PASSWORD: demopassword
+    healthcheck:
+      # The image ships this script; it reports healthy only once the database
+      # is genuinely open for connections.
+      test: ["CMD", "healthcheck.sh"]
+      interval: 10s
+      timeout: 10s
+      retries: 30
+      start_period: 30s
