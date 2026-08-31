@@ -19,9 +19,9 @@ Published at <https://github.com/schoon/redis-v-oracle-demo> (private).
 ## Commands
 
 ```bash
-docker compose up -d     # Redis 8 on :6380, Oracle 9 on :8983
+docker compose up -d     # Redis 8 on :6381, Oracle 23ai Free on :1522
 npm run seed             # generate + load both engines (~10s)
-npm start                # demo on :3010
+npm start                # demo on :3020
 ```
 
 `npm run seed` is safe to re-run; both seeders wipe their engine first.
@@ -95,7 +95,8 @@ institution is a liability in a customer meeting.
 **Deterministic data.** `config.js` holds a fixed PRNG seed so reruns produce
 identical data. Don't introduce `Math.random()` into the generator.
 
-**Redis is on 6380.** Deliberately not 6379, so the demo can't collide with a
+**Redis is on 6381.** Deliberately not 6379 or 6380, so this demo can't collide
+with a local Redis or with the sibling Solr demo. Don't "tidy" it to a
 Redis the presenter already has running. Don't "tidy" it back to the default.
 
 **Don't reintroduce a memory comparison.** An earlier README quoted container

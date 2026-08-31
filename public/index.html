@@ -296,35 +296,36 @@
 
     <div class="stat-row">
       <div class="stat">
-        <div class="stat-num">4&times;</div>
-        <div class="stat-lbl">faster name search</div>
-        <div class="stat-sub">0.71 ms vs 2.91 ms</div>
+        <div class="stat-num">5.7&times;</div>
+        <div class="stat-lbl">faster filtered screening</div>
+        <div class="stat-sub">1.44 ms vs 8.18 ms</div>
       </div>
       <div class="stat">
-        <div class="stat-num">7&times;</div>
-        <div class="stat-lbl">faster lookup by LEI</div>
-        <div class="stat-sub">0.34 ms vs 2.33 ms</div>
+        <div class="stat-num">4.0&times;</div>
+        <div class="stat-lbl">faster autocomplete</div>
+        <div class="stat-sub">1.26 ms vs 5.10 ms</div>
       </div>
       <div class="stat">
-        <div class="stat-num">2.4&times;</div>
-        <div class="stat-lbl">the throughput under load</div>
-        <div class="stat-sub">10,227 vs 4,273 q/s</div>
+        <div class="stat-num">3.4&times;</div>
+        <div class="stat-lbl">faster typo-tolerant search</div>
+        <div class="stat-sub">0.62 ms vs 2.07 ms</div>
       </div>
       <div class="stat">
-        <div class="stat-num">0</div>
-        <div class="stat-lbl">commit step</div>
-        <div class="stat-sub">searchable ~5 ms after write</div>
+        <div class="stat-num">5&times;</div>
+        <div class="stat-lbl">faster semantic search</div>
+        <div class="stat-sub">1.4 ms vs 7.6 ms</div>
       </div>
     </div>
 
     <p class="scenario-line">
-      Seven scenarios from real onboarding work:
+      Nine scenarios from real onboarding work:
       <span class="tag-pill">typo-tolerant names</span>
       <span class="tag-pill">autocomplete</span>
       <span class="tag-pill">filtered screening</span>
       <span class="tag-pill">geo proximity</span>
       <span class="tag-pill">portfolio breakdown</span>
       <span class="tag-pill">LEI lookup</span>
+      <span class="tag-pill">semantic &amp; hybrid</span>
       <span class="tag-pill">concurrent load</span>
     </p>
 
@@ -516,7 +517,7 @@
       <div class="lbl">faster</div>
     </div>
     <div class="metric oracle">
-      <div class="engine">Apache Oracle</div>
+      <div class="engine">Oracle Database</div>
       <div class="time" id="st">—</div>
       <div class="sub" id="ssub">&nbsp;</div>
     </div>
@@ -1320,7 +1321,10 @@
     renderBars(d.redis.ms, d.oracle.ms);
 
     const orderNote = d.order === 'name'
-      ? '<b>Ordered by name on both sides,</b> so the two panes are directly comparable. ' +
+      ? '<b>Ordered by name on both sides,</b> so the two panes are directly comparable — but ' +
+        'many counterparties share a legal name, and neither engine can express a secondary sort ' +
+        'key here, so <b>which members of a tied group appear in the top ten can differ</b>. The ' +
+        'result <i>counts</i> still match exactly, which is what the multiplier is based on. ' +
         'Wildcard and prefix queries score every match identically on both engines, so with ' +
         'relevance ordering "top 10" is decided by each engine’s internal document order and the ' +
         'panes show a different arbitrary ten out of the same result set. Switch order to ' +

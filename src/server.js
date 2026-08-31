@@ -241,7 +241,7 @@ app.get('/api/search', async (req, res) => {
         ms: Number(oracleMs.toFixed(3)),
         total: oracleResult.total,
         hits: normalise(oracleResult.docs),
-        sql: oracleResult.sql,
+        query: oracleResult.sql,
       },
       // Only meaningful when both engines found the same number of documents —
       // the UI greys the multiplier out when the totals disagree, because a
