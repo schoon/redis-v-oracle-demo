@@ -75,9 +75,14 @@ if (!isMainThread) {
       redis.on('error', () => { errors += 1; });
       await redis.connect();
     } else {
-      // Each worker gets its own small Oracle pool. Sharing one connection
-      // across concurrent queries would serialise them and measure queueing.
-      await oracle.init({ min: 1, max: 2 });
+      // One connection per worker thread, not a pool of 2 shared by 16.
+      //
+      // This was wrong on the first run and it mattered: a max of 2 meant 16
+      // workers queued behind 2 connections, so the p99 was 412ms and the max
+      // 4.2s — that is queueing time, not Oracle. A worker only ever issues one
+      // query at a time, so one connection each is the honest setup and matches
+      // how Redis is driven (one connection per worker).
+      await oracle.init({ min: 1, max: 1 });
     }
 
     // Each worker starts at a different point in the pool so they aren't all

@@ -61,6 +61,51 @@ would be worse for Oracle. It's part of what the timings are showing.
 - **No speed multiplier is displayed unless both engines returned the same
   result count.**
 
+## Concurrent throughput, and the 2-CPU cap
+
+`npm run bench` loads both engines under concurrency, sequentially, never at the
+same time.
+
+| Concurrency | Redis QPS | Oracle QPS | Redis p99 | Oracle p99 |
+| ----------- | --------- | ---------- | --------- | ---------- |
+| 2 | 3,089 | 327 | 1.14 ms | 9.46 ms |
+| 4 | 5,206 | 326 | 1.22 ms | 52.10 ms |
+| 8 | 9,722 | 407 | 1.26 ms | 98.48 ms |
+| 16 | 10,766 | 427 | 2.86 ms | 785.90 ms |
+
+**Read the caveat before quoting the ratio.** Oracle Free is capped at **2 CPUs
+by its licence** — `v$parameter cpu_count` reports 2 no matter what Docker is
+told, and there is no container setting that lifts it. Redis meanwhile uses all
+14 cores of this host. The ~26x throughput ratio at 16 clients is therefore
+**not** a like-for-like measurement, and presenting it as one would be
+indefensible: a licensed Oracle on comparable hardware would be far closer.
+
+What the shape *does* legitimately show, and what survives the caveat:
+
+- **Oracle is saturated at 2 concurrent clients.** It does ~327 QPS at
+  concurrency 2 and ~427 at concurrency 16 — essentially flat. Adding clients
+  buys almost no throughput because there is no CPU left to give them.
+- **Past saturation the queue is the latency.** Oracle's p99 goes 9 ms → 52 ms →
+  98 ms → 786 ms across the sweep while its median barely moves from 6 ms to
+  13 ms. That is queueing, and it's the honest way to describe it.
+- **Redis scales to the host.** 3,089 QPS at 2 clients to 10,766 at 16, with p99
+  staying under 3 ms.
+
+Two client-side handicaps were found and fixed before publishing these numbers,
+both of them mine rather than Oracle's:
+
+- Each Oracle bench worker originally shared a **2-connection pool across 16
+  worker threads**, so 14 of them queued on connection acquisition. That
+  produced a 4,270 ms max on the first run. Now one connection per worker,
+  matching how Redis is driven.
+- The client was never the bottleneck: at concurrency 16 the load generator used
+  0.73 of 14 cores driving Oracle against 1.57 driving Redis. Both figures are
+  far from saturation, so these are engine limits, not generator limits.
+
+If a customer's DBA challenges this tab, concede it immediately and point at the
+CPU cap. The single-query latency numbers elsewhere in this demo are much more
+defensible, because a single query cannot use more than one CPU anyway.
+
 ## Where Oracle wins, or comes close
 
 **Primary-key lookup: 0.32 ms against Redis's 0.25 ms — 1.3×.** A B-tree PK

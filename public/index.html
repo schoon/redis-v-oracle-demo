@@ -200,6 +200,40 @@
       padding: 0.12rem 0.55rem; margin: 0.15rem 0.15rem 0 0;
       font-size: 0.75rem; color: #c9cdd6;
     }
+    /* Harness / environment panel at the foot of the overview. */
+    .env {
+      margin-top: 2rem; border-top: 1px solid var(--line); padding-top: 1.1rem;
+    }
+    .env h3 {
+      margin: 0 0 0.7rem; font-size: 0.8rem; font-weight: 620;
+      text-transform: uppercase; letter-spacing: 0.07em; color: var(--muted);
+    }
+    .env-grid {
+      display: grid; grid-template-columns: repeat(3, 1fr); gap: 1rem;
+    }
+    @media (max-width: 820px) { .env-grid { grid-template-columns: 1fr; } }
+    html.present .env-grid { grid-template-columns: 1fr; }
+    .env-card {
+      background: var(--panel); border: 1px solid var(--line);
+      border-radius: 8px; padding: 0.7rem 0.85rem;
+    }
+    .env-card.r { border-left: 2px solid var(--redis); }
+    .env-card.o { border-left: 2px solid var(--oracle); }
+    .env-card.h { border-left: 2px solid #4a5262; }
+    .env-card h4 {
+      margin: 0 0 0.4rem; font-size: 0.78rem; font-weight: 600;
+    }
+    .env-row {
+      display: flex; justify-content: space-between; gap: 0.6rem;
+      font-size: 0.72rem; padding: 0.12rem 0;
+    }
+    .env-row .k { color: var(--muted); }
+    .env-row .v {
+      text-align: right; color: #d5d9e0;
+      font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    }
+    .env-note { font-size: 0.7rem; color: var(--muted); margin: 0.7rem 0 0; }
+
     .method-line {
       font-size: 0.75rem; color: var(--muted); margin: 1.5rem 0 0;
       max-width: 44rem;
@@ -331,6 +365,12 @@
 
     <div class="intro-foot">
       <button id="enterDemo" class="cta">Open the demo &rarr;</button>
+    </div>
+
+    <div class="env" id="env">
+      <h3>Demo harness</h3>
+      <div class="env-grid" id="envGrid"></div>
+      <p class="env-note" id="envNote"></p>
     </div>
 
     <p class="method-line">
@@ -1476,6 +1516,75 @@
       el('corpus').innerHTML = text;
     } catch {
       el('corpus').textContent = 'could not read corpus stats — is the server seeded?';
+    }
+
+    // Versions are read live from both engines rather than hardcoded, so this
+    // panel can't claim something that isn't running.
+    try {
+      const e = await (await fetch('/api/environment')).json();
+      const card = (cls, title, rows) => {
+        const d = document.createElement('div');
+        d.className = `env-card ${cls}`;
+        const h = document.createElement('h4');
+        h.textContent = title;
+        d.append(h);
+        for (const [k, v] of rows) {
+          if (v === null || v === undefined || v === '') continue;
+          const row = document.createElement('div');
+          row.className = 'env-row';
+          const ks = document.createElement('span');
+          ks.className = 'k';
+          ks.textContent = k;
+          const vs = document.createElement('span');
+          vs.className = 'v';
+          vs.textContent = v;
+          row.append(ks, vs);
+          d.append(row);
+        }
+        return d;
+      };
+
+      el('envGrid').replaceChildren(
+        card('r', 'Redis', [
+          ['version', e.redis.version],
+          ['mode', e.redis.mode],
+          // MODULE LIST reports 81000 for 8.10.0, so it needs decoding rather
+          // than printing raw as "v81000".
+          ['query engine', (() => {
+            const m = (e.redis.modules.find((x) => x.startsWith('search')) || '').split(' ')[1];
+            if (!m) return null;
+            const n = Number(m);
+            return `search ${Math.floor(n / 10000)}.${Math.floor((n % 10000) / 100)}.${n % 100}`;
+          })()],
+          ['index memory', e.redis.indexMemoryMb ? `${e.redis.indexMemoryMb} MB` : null],
+          ['port', '6381'],
+        ]),
+        card('o', 'Oracle', [
+          // The banner names the release; trimmed to what fits.
+          ['version', e.oracle.version.replace('Oracle AI Database ', '').replace(' - Develop, Learn, and Run for Free', '')],
+          ['cpu_count', e.oracle.cpuCount],
+          ['Oracle Text', e.oracle.text ? 'yes' : 'no'],
+          ['Spatial', e.oracle.spatial ? 'yes' : 'no'],
+          ['AI Vector Search', e.oracle.vector ? 'yes' : 'no'],
+          ['driver', e.oracle.driver],
+          ['port', '1522'],
+        ]),
+        card('h', 'Harness', [
+          ['corpus', e.corpus.records ? `${e.corpus.records.toLocaleString()} records` : null],
+          ['embeddings', e.corpus.vectors ? '384d, local' : 'not generated'],
+          ['model', e.corpus.embeddingModel ? e.corpus.embeddingModel.split('/')[1] : null],
+          ['node', e.host.node],
+          ['host', `${e.host.platform}, ${e.host.cores} cores`],
+        ]),
+      );
+
+      el('envNote').innerHTML =
+        'Both engines run in Docker on this machine — same CPU, same dataset, no network between them. '
+        + `<b>Oracle Free is capped at ${e.oracle.cpuCount} CPUs by its licence</b> while Redis uses all `
+        + `${e.host.cores} cores, which is why the throughput tab is not a like-for-like comparison. `
+        + 'Every figure in this demo is measured on the numbers above, not carried over from anywhere.';
+    } catch {
+      el('env').hidden = true;
     }
 
     buildChips();

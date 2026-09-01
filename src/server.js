@@ -636,6 +636,70 @@ app.get('/api/bench-results', (req, res) => {
   }
 });
 
+// GET /api/environment — what the demo is actually running on.
+//
+// Read live from both engines rather than hardcoded, so the overview page can't
+// claim a version that isn't there. A stale version string on a competitive
+// demo is the kind of detail that gets noticed.
+app.get('/api/environment', async (req, res) => {
+  try {
+    const [redisInfo, oracleVer, oracleCpu, caps, ftInfoRes] = await Promise.all([
+      redis.info('server'),
+      oracle.query('select banner_full as b from v$version').catch(() => []),
+      oracle.query("select value as v from v$parameter where name = 'cpu_count'").catch(() => []),
+      oracle.capabilities().catch(() => ({})),
+      ftInfo(redis, REDIS_INDEX).catch(() => null),
+    ]);
+
+    const line = (key) => {
+      const m = new RegExp(`^${key}:(.*)$`, 'm').exec(redisInfo);
+      return m ? m[1].trim() : null;
+    };
+    const modules = await redis.sendCommand(['MODULE', 'LIST']).catch(() => []);
+    const searchMod = [];
+    for (const entry of modules || []) {
+      const o = {};
+      for (let i = 0; i < entry.length; i += 2) o[String(entry[i])] = String(entry[i + 1]);
+      if (o.name) searchMod.push(`${o.name} ${o.ver}`);
+    }
+
+    const banner = oracleVer[0]?.B || 'unknown';
+
+    res.json({
+      corpus: {
+        records: ftInfoRes ? ftInfoRes.stats.numDocs : null,
+        vectors: vectorsAvailable(),
+        embeddingModel: vectorsAvailable() ? MODEL : null,
+      },
+      redis: {
+        version: line('redis_version'),
+        mode: line('redis_mode'),
+        os: line('os'),
+        modules: searchMod,
+        indexMemoryMb: ftInfoRes
+          ? Number(ftInfoRes.stats.totalIndexMemorySzMb.toFixed(1)) : null,
+      },
+      oracle: {
+        // The banner is long; the first line is the useful part.
+        version: String(banner).split('\n')[0],
+        cpuCount: oracleCpu[0]?.V ? Number(oracleCpu[0].V) : null,
+        text: caps.text,
+        spatial: caps.spatial,
+        vector: caps.vector,
+        driver: `node-oracledb ${oracle.oracledb.versionString} (thin mode)`,
+      },
+      host: {
+        node: process.version,
+        platform: `${process.platform} ${process.arch}`,
+        cores: require('os').cpus().length,
+      },
+    });
+  } catch (err) {
+    console.error('environment failed:', err.message);
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // GET /api/meta — filter vocabularies and geo centres, so the UI doesn't
 // hardcode lists that could drift from the data.
 app.get('/api/meta', (req, res) => {

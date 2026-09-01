@@ -114,6 +114,29 @@ Loading the same 100,000 records:
 | Index build | included in the write | 2.3 s for 11 indexes, then 1.0 s for statistics |
 | Searchable after write | immediately | after `COMMIT`; the text index needs a sync — configured here as `SYNC (ON COMMIT)` |
 
+## Concurrent throughput
+
+```bash
+npm run bench
+npm run bench -- --scenario=filtered --concurrency=8
+```
+
+| Concurrency | Redis QPS | Oracle QPS | Redis p99 | Oracle p99 |
+| ----------- | --------- | ---------- | --------- | ---------- |
+| 2 | 3,089 | 327 | 1.14 ms | 9.46 ms |
+| 8 | 9,722 | 407 | 1.26 ms | 98.48 ms |
+| 16 | 10,766 | 427 | 2.86 ms | 785.90 ms |
+
+⚠️ **Oracle Free is capped at 2 CPUs by licence** and there's no container
+setting that lifts it, while Redis uses all 14 cores here. **Do not quote the
+throughput ratio as like-for-like** — see
+[Methodology](docs/METHODOLOGY.md#concurrent-throughput-and-the-2-cpu-cap).
+
+What survives the caveat: Oracle is already saturated at **2** concurrent
+clients (327 QPS, versus 427 at sixteen), and past saturation its p99 goes from
+9 ms to 786 ms while its median barely moves — that's queueing. Redis scales
+with the host and holds p99 under 3 ms.
+
 ## Validating the results
 
 ```bash

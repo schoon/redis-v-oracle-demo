@@ -44,6 +44,11 @@ services:
       # the seeder doesn't need SYSDBA.
       APP_USER: counterparty
       APP_USER_PASSWORD: demopassword
+    # NOTE: Oracle Free is capped at 2 CPUs by its licence, and there is no
+    # container setting that lifts it — v$parameter cpu_count reports 2 whatever
+    # Docker is told. Redis meanwhile uses all 14 cores of this host. That is the
+    # single biggest caveat on the throughput numbers and it is stated plainly in
+    # the README and METHODOLOGY rather than worked around.
     healthcheck:
       # The image ships this script; it reports healthy only once the database
       # is genuinely open for connections.
