@@ -31,7 +31,19 @@ const FACET_FIELDS = ['credit_rating', 'country', 'entity_type', 'sector', 'stat
 
 const app = express();
 app.use(express.json());
-app.use(express.static(path.join(__dirname, '..', 'public')));
+// no-store across the demo. This is a single HTML file that gets edited while
+// presenting, and a browser holding a cached copy is a real trap: a label fix
+// landed on the server while the page on screen kept showing the old text,
+// which read as "the fix didn't work". What's on screen being correct matters
+// more here than saving a 60 KB re-fetch.
+app.use((req, res, next) => {
+  res.set('Cache-Control', 'no-store, must-revalidate');
+  next();
+});
+app.use(express.static(path.join(__dirname, '..', 'public'), {
+  etag: false,
+  lastModified: false,
+}));
 
 const redis = createClient({ url: REDIS_URL });
 redis.on('error', (err) => console.error('Redis error:', err.message || err.code || err));
